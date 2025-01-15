@@ -473,6 +473,20 @@ class GenericSwitchDriver(api.MechanismDriver):
         local_link_information = binding_profile.get('local_link_information')
 
         if self._is_port_supported(port) and local_link_information:
+            # Filter segments where port is already assigned to subnet(s)
+            subnets = []
+            for fixed_ip in port.get('fixed_ips', []):
+                subnet_id = fixed_ip.get('subnet_id')
+                if subnet_id:
+                    subnets.append(context._plugin.get_subnet(context.plugin_context, subnet_id))
+            if len(subnets) > 0:
+                segments = []
+                for segment in context.segments_to_bind:
+                    for subnet in subnets:
+                        segment_id = subnet.get('segment_id')
+                        if segment_id is None or segment_id == segment[api.ID]:
+                            segments.append(segment)
+
             # NOTE(jamesdenton): If any link of the port is invalid, none
             # of the links should be processed.
             if not self._is_link_valid(port,
